@@ -6,28 +6,33 @@ const jwt = require('jsonwebtoken')
 const nanoid = require('nanoid')
 const ms = require('ms')
 
-const AUTHORIZATION_REGEX = RegExp(/^(Bearer +([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+))$/)
+const AUTHORIZATION_REGEX = /^(Bearer +([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+))$/
+const SCOPE_REGEX_ID = /^(((read|write):([a-z]+)):([a-zA-Z0-9_-]+))$/
 
-const authOptions = {
-  algorithm: config.get('auth.algorithm'),
-  maxAge: config.get('auth.maxAge'),
-  nonceLength: config.get('auth.nonceLength'),
-  secret: process.env.APP_SECRET
-}
-
-const binOptions = {
-  usersUrl: config.get('jsonbin.baseUrl') + config.get('jsonbin.binUrl') + '/' + config.get('jsonbin.usersBin'),
-  secret: process.env.JSONBIN_SECRET
-}
-
-const getUser = async function(username, options) {
-  const users = await axios.get(options.usersUrl, {headers: {'secret-key': options.secret}})
-  return (users.data !== null && typeof users.data === 'object' && !Array.isArray(users.data) && users.data[username] ? users.data[username] : null)
-}
-
-const generateToken = function(username, options) {
+const generateToken = function(username, acl, options) {
   const nonce = nanoid(options.nonceLength)
-  return jwt.sign({user: username, nonce: nonce}, options.secret, {algorithm: options.algorithm})
+  return jwt.sign({user: username, scope: acl, nonce: nonce}, options.secret, {algorithm: options.algorithm})
+}
+
+const checkScope = function(payloadScope, ctxScope) {
+  if (typeof payloadScope !== 'string' && !Array.isArray(payloadScope)) {
+    return false
+  }
+  if (typeof payloadScope === 'string' && payloadScope !== 'superuser') {
+    return false
+  }
+  if (Array.isArray(payloadScope)) {
+    const ctxScopeMatch = ctxScope.match(SCOPE_REGEX_ID)
+    if (ctxScopeMatch) {
+      return payloadScope.some(scope => {
+        const scopeMatch = scope.match(SCOPE_REGEX_ID)
+        return (scopeMatch && scopeMatch[2] === ctxScopeMatch[2] && ctx.params[ctxScopeMatch[5]] === scopeMatch[5])
+      })
+    }
+    else {
+      return payloadScope.some(scope => (scope === ctxScope))
+    }
+  }
 }
 
 module.exports = {
@@ -47,11 +52,20 @@ module.exports = {
       ctx.throw(422, undefined, {errors: errors, expose: true})
     }
 
-    const response = {}
+    const q = {}
+
     try {
-      response.user = await getUser(ctx.request.body.username, binOptions)
+      const url = config.appbase.baseUrl + config.appbase.appname + '/users/' + ctx.request.body.username + '/_source'
+      const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
+      if (!res.data || ctx.request.body.password !== res.data.password) {
+        throw {code: 'UNAUTHORIZED'}
+      }
+      q.acl = (res.data.acl || [])
     }
     catch (error) {
+      if (error.code === 'UNAUTHORIZED') {
+        ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
+      }
       if (error.response.status === 404) {
         ctx.throw(503, error.message, {log: true})
       }
@@ -60,64 +74,51 @@ module.exports = {
       }
     }
 
-    if (!response.user || ctx.request.body.password !== response.user.password) {
-      ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
-    }
-
-    const token = generateToken(ctx.request.body.username, authOptions)
+    const token = generateToken(ctx.request.body.username, q.acl, config.auth)
 
     ctx.body = {
       status: 'ok',
       token: token,
-      ttl: Math.floor(ms(authOptions.maxAge) / 1000)
+      ttl: Math.floor(ms(config.auth.maxAge) / 1000)
     }
 
     ctx.status = 200
     await next()
   },
 
-  async authenticate(ctx, next) {
-    if (!ctx.get('Authorization') || ctx.get('Authorization').trim().length === 0) {
-      ctx.throw(403, 'FORBIDDEN', {expose: true})
-    }
-
-    const authMatch = ctx.get('Authorization').match(AUTHORIZATION_REGEX)
-    if (!authMatch) {
-      ctx.throw(401, undefined, {errors: [{code: 'AUTHORIZATION_MALFORMED', detail: 'Authorization header is malformed, make sure you have included `Bearer` before your access token'}], expose: true})
-    }
-    const token = authMatch[2]
-
-    const decodedToken = {}
-    try {
-      decodedToken.payload = jwt.verify(token, authOptions.secret, {algorithms: [authOptions.algorithm], maxAge: authOptions.maxAge})
-    }
-    catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        ctx.throw(401, undefined, {errors: [{code: 'EXPIRED_TOKEN', detail: 'Access token has expired, please login again'}], expose: true})
+  verifyJWT(ctxScope) {
+    return async function(ctx, next) {
+      if (!ctx.get('Authorization') || ctx.get('Authorization').trim().length === 0) {
+        ctx.throw(403)
       }
-      else if (error.name === 'JsonWebTokenError') {
-        ctx.throw(403, 'FORBIDDEN', {expose: true})
-      }
-    }
 
-    const response = {}
-    try {
-      response.user = await getUser(decodedToken.payload.user, binOptions)
-    }
-    catch (error) {
-      if (error.response.status === 404) {
-        ctx.throw(503, error.message, {log: true})
+      const authMatch = ctx.get('Authorization').match(AUTHORIZATION_REGEX)
+      if (!authMatch) {
+        ctx.throw(401, undefined, {errors: [{code: 'AUTHORIZATION_MALFORMED', detail: 'Authorization header is malformed, make sure you have included `Bearer` before your access token'}], expose: true})
       }
-      else {
-        ctx.throw(503, error.message, {log: true})
+      const token = authMatch[2]
+
+      try {
+        const payload = jwt.verify(token, config.auth.secret, {algorithms: [config.auth.algorithm], maxAge: config.auth.maxAge})
+        if (!checkScope(payload.scope, ctxScope)) {
+          throw {name: 'InvalidScope'}
+        }
+
+        ctx.state.user = payload.user
       }
-    }
+      catch (error) {
+        if (error.name === 'InvalidScopeType' || error.name === 'InvalidScope') {
+          ctx.throw(401, undefined, {errors: [{code: 'ACCESS_NOT_ALLOWED', detail: 'You do not have access to this resource'}], expose: true})
+        }
+        if (error.name === 'TokenExpiredError') {
+          ctx.throw(401, undefined, {errors: [{code: 'EXPIRED_TOKEN', detail: 'Access token has expired, please login again'}], expose: true})
+        }
+        else if (error.name === 'JsonWebTokenError') {
+          ctx.throw(403)
+        }
+      }
 
-    if (!response.user) {
-      ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and token'}], expose: true})
+      await next()
     }
-
-    ctx.state.user = response.user
-    await next()
   }
 }
