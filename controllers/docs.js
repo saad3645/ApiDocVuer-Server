@@ -3,10 +3,17 @@
 const config = require('config')
 const axios = require('axios')
 
+const getCurrentVersion = async function(appId, options) {
+  const url = options.baseUrl + options.appname + '/apps/' + appId + '/_source'
+  const res = await axios.get(url, {headers: {'Authorization': options.authorization}})
+  return (res.currentVersion ? res.currentVersion : '')
+}
+
 module.exports = {
   async get(ctx, next) {
     try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/docs/' + ctx.params.id + '/_source'
+      const appVersion = ctx.params.version ? ctx.params.version : getCurrentVersion(ctx.params.appId, config.appbase)
+      const url = config.appbase.baseUrl + config.appbase.appname + '/docs/' + ctx.params.appId + ':' + ctx.params.docId + '@' + appVersion + '/_source'
       const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
       ctx.body = res.data
     }

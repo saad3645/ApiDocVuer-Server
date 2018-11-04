@@ -3,8 +3,7 @@
 const winston = require('winston');
 const Logger = winston.createLogger({
   transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({filename: 'server.log'})
+    new winston.transports.Console()
   ]
 })
 

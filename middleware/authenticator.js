@@ -4,10 +4,11 @@ const config = require('config')
 const axios = require('axios')
 const jwt = require('jsonwebtoken')
 const nanoid = require('nanoid')
+const bcrypt = require('bcryptjs')
 const ms = require('ms')
 
 const AUTHORIZATION_REGEX = /^(Bearer +([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+))$/
-const SCOPE_REGEX_ID = /^(((read|write):([a-z]+)):([a-zA-Z0-9_-]+))$/
+const SCOPE_REGEX = /^(?:((read|write)\:([a-z._-]+))(?:\:([a-zA-Z0-9_-]+)(?:\:([a-zA-Z0-9_-]+))?)?)$/
 
 const generateToken = function(username, acl, options) {
   const nonce = nanoid(options.nonceLength)
@@ -15,24 +16,45 @@ const generateToken = function(username, acl, options) {
 }
 
 const checkScope = function(payloadScope, ctxScope) {
-  if (typeof payloadScope !== 'string' && !Array.isArray(payloadScope)) {
-    return false
+  if (typeof payloadScope === 'string') {
+    return (payloadScope === 'superuser')
   }
-  if (typeof payloadScope === 'string' && payloadScope !== 'superuser') {
-    return false
-  }
-  if (Array.isArray(payloadScope)) {
-    const ctxScopeMatch = ctxScope.match(SCOPE_REGEX_ID)
+  else if (Array.isArray(payloadScope)) {
+    const ctxScopeMatch = ctxScope.match(SCOPE_REGEX)
     if (ctxScopeMatch) {
-      return payloadScope.some(scope => {
-        const scopeMatch = scope.match(SCOPE_REGEX_ID)
-        return (scopeMatch && scopeMatch[2] === ctxScopeMatch[2] && ctx.params[ctxScopeMatch[5]] === scopeMatch[5])
-      })
+      if (ctxScopeMatch[4] && ctxScopeMatch[5]) {
+        return payloadScope.some(scope => {
+          const scopeMatch = scope.match(SCOPE_REGEX)
+          return (scopeMatch && scopeMatch[4] && scopeMatch[5] && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]] && scopeMatch[5] === ctx.params[ctxScopeMatch[5]])
+        })
+      }
+      else if (ctxScopeMatch[4]) {
+        return payloadScope.some(scope => {
+          const scopeMatch = scope.match(SCOPE_REGEX)
+          return (scopeMatch && scopeMatch[4] && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]])
+        })
+      }
+      else {
+        return payloadScope.some(scope => {
+          const scopeMatch = scope.match(SCOPE_REGEX)
+          return (scopeMatch && scopeMatch[1] === ctxScopeMatch[1])
+        })
+      }
     }
     else {
       return payloadScope.some(scope => (scope === ctxScope))
     }
   }
+
+  return false
+}
+
+const verifyToken = function(token, ctxScope, options) {
+  const payload = jwt.verify(token, options.secret, {algorithms: [options.algorithm], maxAge: options.maxAge})
+  if (!checkScope(payload.scope, ctxScope)) {
+    throw {name: 'InvalidScope'}
+  }
+  return payload
 }
 
 module.exports = {
@@ -57,7 +79,7 @@ module.exports = {
     try {
       const url = config.appbase.baseUrl + config.appbase.appname + '/users/' + ctx.request.body.username + '/_source'
       const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      if (!res.data || ctx.request.body.password !== res.data.password) {
+      if (!res.data || !res.data.password_hash || !bcrypt.compareSync(ctx.request.body.password, res.data.password_hash)) {
         throw {code: 'UNAUTHORIZED'}
       }
       q.acl = (res.data.acl || [])
@@ -67,7 +89,7 @@ module.exports = {
         ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
       }
       if (error.response.status === 404) {
-        ctx.throw(503, error.message, {log: true})
+        ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
       }
       else {
         ctx.throw(503, error.message, {log: true})
@@ -99,16 +121,12 @@ module.exports = {
       const token = authMatch[2]
 
       try {
-        const payload = jwt.verify(token, config.auth.secret, {algorithms: [config.auth.algorithm], maxAge: config.auth.maxAge})
-        if (!checkScope(payload.scope, ctxScope)) {
-          throw {name: 'InvalidScope'}
-        }
-
+        const payload = verifyToken(token, ctxScope, config.auth)
         ctx.state.user = payload.user
       }
       catch (error) {
         if (error.name === 'InvalidScopeType' || error.name === 'InvalidScope') {
-          ctx.throw(401, undefined, {errors: [{code: 'ACCESS_NOT_ALLOWED', detail: 'You do not have access to this resource'}], expose: true})
+          ctx.throw(401, undefined, {errors: [{code: 'ACCESS_NOT_ALLOWED', detail: 'You do not have access to this resource/endpoint'}], expose: true})
         }
         if (error.name === 'TokenExpiredError') {
           ctx.throw(401, undefined, {errors: [{code: 'EXPIRED_TOKEN', detail: 'Access token has expired, please login again'}], expose: true})

@@ -44,9 +44,9 @@ module.exports = {
 
   async docs(ctx, next) {
     try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/apps/' + ctx.params.id + '/_source'
+      const url = config.appbase.baseUrl + config.appbase.appname + '/docs/' + ctx.params.id + '/_source'
       const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      ctx.body = res.data.docs
+      ctx.body = res.data
     }
     catch (error) {
       if (error.response.status === 404) {

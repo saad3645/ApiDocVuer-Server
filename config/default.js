@@ -21,7 +21,7 @@ module.exports = {
   appbase: {
     baseUrl: 'https://scalr.api.appbase.io/',
     appname: 'invariant-openapi-docs',
-    authorization: 'Basic ' + Buffer.from(process.env.APP_BASE_KEY).toString('base64')
+    authorization: 'Basic ' + Buffer.from(process.env.APPBASE_KEY).toString('base64')
   },
   jsonbin: {
     baseUrl: 'https://api.jsonbin.io/',

@@ -13,9 +13,9 @@ router
   .post('/login', koaBody(), auth.login)
   .get('/apps', auth.verifyJWT('read:apps'), apps.list)
   .get('/apps/:id', auth.verifyJWT('read:app:id'), apps.get)
-  .get('/apps/:id/docs', auth.verifyJWT('read:app:id'), apps.docs)
-  .get('/docs/:id', auth.verifyJWT('read:doc:id'), docs.get)
-  .get('/docs/:id/:version', auth.verifyJWT('read:doc:id'), docs.get)
+  .get('/apps/:id/docs', auth.verifyJWT('read:app.docs:id'), apps.docs)
+  .get('/docs/:appId/:docId', auth.verifyJWT('read:doc:appId:docId'), docs.get)
+  .get('/docs/:appId/:docId/:version', auth.verifyJWT('read:doc:appId:docId'), docs.get)
 
 module.exports = () => {
   return compose([
