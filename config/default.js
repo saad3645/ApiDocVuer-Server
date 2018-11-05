@@ -2,9 +2,9 @@
 
 module.exports = {
   app: {
-    name: 'Api Document',
-    shortName: 'api-document',
-    createdBy: 'Saad Ahmed',
+    name: 'ApidocVuer',
+    shortName: 'apidocvuer',
+    author: 'Saad Ahmed',
     copyright: 'Saad Ahmed',
     version: '1.0.0',
     port: undefined
@@ -20,7 +20,7 @@ module.exports = {
   },
   appbase: {
     baseUrl: 'https://scalr.api.appbase.io/',
-    appname: 'invariant-openapi-docs',
+    appname: process.env.APPBASE_APPNAME,
     authorization: 'Basic ' + Buffer.from(process.env.APPBASE_KEY).toString('base64')
   },
   jsonbin: {

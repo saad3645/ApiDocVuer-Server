@@ -1,14 +1,25 @@
 {
-  "name": "openapi-server",
+  "name": "apidocvuer-server",
   "version": "1.0.0",
-  "description": "Openapi Server",
+  "description": "ApidocVuer Server",
   "main": "server.js",
   "scripts": {
-    "start": "node ./server.js",
+    "start": "node ./app/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Saad Ahmed",
-  "license": "ISC",
+  "author": "Saad Ahmed <saad3645@gmail.com>",
+  "keywords": [
+    "OpenAPI",
+    "OpenAPI Specification",
+    "Swagger",
+    "JSON-Schema",
+    "API",
+    "REST",
+    "documentation",
+    "Koa",
+    "Koa.js"
+  ],
+  "license": "MIT",
   "dependencies": {
     "@koa/cors": "^2.2.2",
     "axios": "^0.18.0",

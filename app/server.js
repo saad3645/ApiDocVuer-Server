@@ -23,7 +23,7 @@ const Logger = winston.createLogger({
 const port = process.env.PORT || config.app.port || 8080
 
 const server = app.listen(port, () => {
-  Logger.info('Started ' + config.app.name + ' server')
+  Logger.info('Started ' + config.app.name + ' server on port ' + port)
 })
 
 module.exports = {

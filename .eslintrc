@@ -1,0 +1,10 @@
+{
+  "extends": "standard",
+  "rules": {
+    "block-spacing": ["error", "never"],
+    "brace-style": ["error", "stroustrup", {"allowSingleLine": true}],
+    "max-len": ["error", {"code": 160}],
+    "object-curly-spacing": ["error", "never"],
+    "space-before-function-paren": ["error", {"anonymous": "never", "named": "never", "asyncArrow": "always"}]
+  }
+}
