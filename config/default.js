@@ -15,19 +15,6 @@ module.exports = {
   auth: {
     algorithm: 'HS512',
     maxAge: '12h',
-    nonceLength: 10,
-    secret: process.env.APP_SECRET
-  },
-  appbase: {
-    baseUrl: 'https://scalr.api.appbase.io/',
-    appname: process.env.APPBASE_APPNAME,
-    authorization: 'Basic ' + Buffer.from(process.env.APPBASE_KEY).toString('base64')
-  },
-  jsonbin: {
-    baseUrl: 'https://api.jsonbin.io/',
-    binUrl: 'b',
-    collectionId: undefined,
-    usersBin: undefined,
-    docsBin: undefined
+    nonceLength: 10
   }
 }
