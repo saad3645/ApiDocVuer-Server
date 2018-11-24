@@ -59,10 +59,10 @@ module.exports = {
     const q = {}
 
     try {
-      q.data = await elasticsearch.get('user', ctx.request.body.username)
+      q.data = await elasticsearch.get('user', ctx.request.body.username, config.db)
     }
     catch (error) {
-      if (error.response.status === 404) {
+      if (error.response && error.response.status === 404) {
         ctx.throw(401, 'Invalid username and password', {error: 401, expose: true})
       }
       else {

@@ -17,7 +17,7 @@ module.exports = (options = {}) => {
         (typeof error.log === 'string' && typeof options.env === 'string' && error.log === options.env))
 
       if (log) {
-        logger.error(error)
+        logger.error(error.message, {stack: error.stack})
       }
 
       ctx.status = error.statusCode || error.status || 500

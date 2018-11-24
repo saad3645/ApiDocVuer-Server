@@ -10,7 +10,7 @@ module.exports = {
       ctx.body = data.hits
     }
     catch (error) {
-      if (error.response.status === 404) {
+      if (error.response && error.response.status === 404) {
         ctx.throw(404)
       }
       else {
@@ -27,7 +27,7 @@ module.exports = {
       ctx.body = await elasticsearch.get('app', ctx.params.id, config.db)
     }
     catch (error) {
-      if (error.response.status === 404) {
+      if (error.response && error.response.status === 404) {
         ctx.throw(404)
       }
       else {
