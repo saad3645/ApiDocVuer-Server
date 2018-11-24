@@ -1,100 +1,78 @@
 'use strict'
 
 const config = require('config')
-const axios = require('axios')
+const Ajv = require('ajv')
 const jwt = require('jsonwebtoken')
 const nanoid = require('nanoid')
 const bcrypt = require('bcryptjs')
 const ms = require('ms')
+const elasticsearch = require('../elasticsearch')
 
-const AUTHORIZATION_REGEX = /^(Bearer +([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+))$/
-const SCOPE_REGEX = /^(?:((read|write)\:([a-z._-]+))(?:\:([a-zA-Z0-9_-]+)(?:\:([a-zA-Z0-9_-]+))?)?)$/
+const LOGIN_SCHEMA = require('./login.schema.json')
+const AUTHORIZATION_REGEX = /^Bearer +([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)$/
+const SCOPE_REGEX = /^(read|write):([a-z._-]+)(?::([a-zA-Z0-9_-]+)(?::([a-zA-Z0-9_-]+))?)?$/
 
 const generateToken = function(username, acl, options) {
   const nonce = nanoid(options.nonceLength)
   return jwt.sign({user: username, scope: acl, nonce: nonce}, options.secret, {algorithm: options.algorithm})
 }
 
-const checkScope = function(payloadScope, ctxScope) {
+const checkScope = function(payloadScope, ctx) {
   if (typeof payloadScope === 'string') {
     return (payloadScope === 'superuser')
   }
   else if (Array.isArray(payloadScope)) {
-    const ctxScopeMatch = ctxScope.match(SCOPE_REGEX)
+    const ctxScopeMatch = ctx.state.scope.match(SCOPE_REGEX)
     if (ctxScopeMatch) {
-      if (ctxScopeMatch[4] && ctxScopeMatch[5]) {
-        return payloadScope.some(scope => {
-          const scopeMatch = scope.match(SCOPE_REGEX)
-          return (scopeMatch && scopeMatch[4] && scopeMatch[5] && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]] && scopeMatch[5] === ctx.params[ctxScopeMatch[5]])
-        })
-      }
-      else if (ctxScopeMatch[4]) {
-        return payloadScope.some(scope => {
-          const scopeMatch = scope.match(SCOPE_REGEX)
-          return (scopeMatch && scopeMatch[4] && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]])
-        })
-      }
-      else {
-        return payloadScope.some(scope => {
-          const scopeMatch = scope.match(SCOPE_REGEX)
-          return (scopeMatch && scopeMatch[1] === ctxScopeMatch[1])
-        })
-      }
+      return payloadScope.some(scope => {
+        const scopeMatch = scope.match(SCOPE_REGEX)
+        // eslint-disable-next-line max-len
+        return (scopeMatch && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[2] === ctxScopeMatch[2] && (!ctxScopeMatch[3] || (scopeMatch[3] && scopeMatch[3] === ctx.params[ctxScopeMatch[3]])) && (!ctxScopeMatch[4] || (scopeMatch[4] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]])))
+      })
     }
     else {
-      return payloadScope.some(scope => (scope === ctxScope))
+      return payloadScope.some(scope => (scope === ctx.state.scope))
     }
   }
 
   return false
 }
 
-const verifyToken = function(token, ctxScope, options) {
-  const payload = jwt.verify(token, options.secret, {algorithms: [options.algorithm], maxAge: options.maxAge})
-  if (!checkScope(payload.scope, ctxScope)) {
-    throw {name: 'InvalidScope'}
+const verifyToken = function(token, ctxScope, ctxParams, options) {
+  const payload = jwt.verify(token, options.secret, {algorithms: [options.algorithm], maxAge: options.maxAge, clockTolerance: options.clockTolerance})
+  if (!checkScope(payload.scope, ctxScope, ctxParams)) {
+    throw new Error('scope_invalid')
   }
   return payload
 }
 
 module.exports = {
   async login(ctx, next) {
-    if (!ctx.request.body || JSON.stringify(ctx.request.body) === '{}' || JSON.stringify(ctx.request.body) === '[]') {
-      ctx.throw(400, undefined, {errors: [{code: 'BAD_REQUEST', detail: 'Request body is empty or malformed'}], expose: true})
-    }
+    ctx.assert(ctx.request.body, 400, 'Request body is empty', {error: 'request_body_empty'})
+    ctx.assert(!Array.isArray(ctx.request.body), 400, 'Request body must be a json object', {error: 'request_body_malformed'})
 
-    const errors = []
-    if (!ctx.request.body.username) {
-      errors.push({code: 'MISSING_PARAMETER', parameter: 'username', detail: 'Username is required'})
-    }
-    if (!ctx.request.body.password) {
-      errors.push({code: 'MISSING_PARAMETER', parameter: 'password', detail: 'Password is required'})
-    }
-    if (errors.length > 0) {
-      ctx.throw(422, undefined, {errors: errors, expose: true})
-    }
+    const ajv = new Ajv()
+    const valid = ajv.validate(LOGIN_SCHEMA, ctx.request.body)
+    ctx.assert(valid, 422, undefined, {errors: ajv.errors, expose: true})
 
     const q = {}
 
     try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/users/' + ctx.request.body.username + '/_source'
-      const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      if (!res.data || !res.data.password_hash || !bcrypt.compareSync(ctx.request.body.password, res.data.password_hash)) {
-        throw {code: 'UNAUTHORIZED'}
-      }
-      q.acl = (res.data.acl || [])
+      q.data = await elasticsearch.get('user', ctx.request.body.username)
     }
     catch (error) {
-      if (error.code === 'UNAUTHORIZED') {
-        ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
-      }
       if (error.response.status === 404) {
-        ctx.throw(401, undefined, {errors: [{code: 'UNAUTHORIZED', detail: 'Invalid username and password'}], expose: true})
+        ctx.throw(401, 'Invalid username and password', {error: 401, expose: true})
       }
       else {
-        ctx.throw(503, error.message, {log: true})
+        ctx.throw(503, error, {log: true})
       }
     }
+
+    ctx.assert(q.data && q.data.password_hash, 401, 'Invalid username and password', {error: 401, expose: true})
+
+    const passwordValid = bcrypt.compareSync(ctx.request.body.password, q.data.password_hash)
+    ctx.assert(passwordValid, 401, 'Invalid username and password', {error: 401, expose: true})
 
     const token = generateToken(ctx.request.body.username, q.acl, config.auth)
 
@@ -109,27 +87,26 @@ module.exports = {
   },
 
   verifyJWT(ctxScope) {
-    return async function(ctx, next) {
-      if (!ctx.get('Authorization') || ctx.get('Authorization').trim().length === 0) {
-        ctx.throw(403)
-      }
+    return async (ctx, next) => {
+      // eslint-disable-next-line max-len
+      ctx.assert(ctx.get('Authorization') && ctx.get('Authorization').trim().length === 0, 401, 'Authorization header is missing or empty', {error: 'authorization_missing', expose: true})
 
-      const authMatch = ctx.get('Authorization').match(AUTHORIZATION_REGEX)
-      if (!authMatch) {
-        ctx.throw(401, undefined, {errors: [{code: 'AUTHORIZATION_MALFORMED', detail: 'Authorization header is malformed, make sure you have included `Bearer` before your access token'}], expose: true})
-      }
-      const token = authMatch[2]
+      const authMatch = ctx.get('Authorization').trim().match(AUTHORIZATION_REGEX)
+      // eslint-disable-next-line max-len
+      ctx.assert(authMatch, 401, 'Authorization header is malformed, make sure you included `Bearer` before your access token', {error: 'authorization_malformed', expose: true})
+
+      const token = authMatch[1]
 
       try {
-        const payload = verifyToken(token, ctxScope, config.auth)
+        const payload = verifyToken(token, ctxScope, ctx.params, config.auth)
         ctx.state.user = payload.user
       }
       catch (error) {
-        if (error.name === 'InvalidScopeType' || error.name === 'InvalidScope') {
-          ctx.throw(401, undefined, {errors: [{code: 'ACCESS_NOT_ALLOWED', detail: 'You do not have access to this resource/endpoint'}], expose: true})
+        if (error.message === 'scope_invalid') {
+          ctx.throw(401, 'User does not have access to this resource/endpoint', {error: 'acess_scope_mismatch', expose: true})
         }
         if (error.name === 'TokenExpiredError') {
-          ctx.throw(401, undefined, {errors: [{code: 'EXPIRED_TOKEN', detail: 'Access token has expired, please login again'}], expose: true})
+          ctx.throw(401, 'Access token has expired, please login again', {error: 'access_token_expired', expose: true})
         }
         else if (error.name === 'JsonWebTokenError') {
           ctx.throw(403)

@@ -1,21 +1,20 @@
 'use strict'
 
 const config = require('config')
-const axios = require('axios')
+const elasticsearch = require('../elasticsearch')
 
 module.exports = {
   async list(ctx, next) {
     try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/apps/list/_source'
-      const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      ctx.body = res.data
+      const data = await elasticsearch.list('app', config.db)
+      ctx.body = data.hits
     }
     catch (error) {
       if (error.response.status === 404) {
         ctx.throw(404)
       }
       else {
-        ctx.throw(503, error.message, {log: true})
+        ctx.throw(503, error, {log: true})
       }
     }
 
@@ -25,35 +24,14 @@ module.exports = {
 
   async get(ctx, next) {
     try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/apps/' + ctx.params.id + '/_source'
-      const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      ctx.body = res.data
+      ctx.body = await elasticsearch.get('app', ctx.params.id, config.db)
     }
     catch (error) {
       if (error.response.status === 404) {
         ctx.throw(404)
       }
       else {
-        ctx.throw(503, error.message, {log: true})
-      }
-    }
-
-    ctx.status = 200
-    await next()
-  },
-
-  async docs(ctx, next) {
-    try {
-      const url = config.appbase.baseUrl + config.appbase.appname + '/docs/' + ctx.params.id + '/_source'
-      const res = await axios.get(url, {headers: {'Authorization': config.appbase.authorization}})
-      ctx.body = res.data
-    }
-    catch (error) {
-      if (error.response.status === 404) {
-        ctx.throw(404)
-      }
-      else {
-        ctx.throw(503, error.message, {log: true})
+        ctx.throw(503, error, {log: true})
       }
     }
 

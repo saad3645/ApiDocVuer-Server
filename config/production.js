@@ -2,6 +2,6 @@
 
 module.exports = {
   client: {
-    origin: 'http://localhost:8080'
+    origin: process.env.CLIENT_ORIGIN || 'http://localhost:8080'
   }
 }

@@ -15,6 +15,16 @@ module.exports = {
   auth: {
     algorithm: 'HS512',
     maxAge: '12h',
-    nonceLength: 10
+    nonceLength: 10,
+    clockTolerance: 10,
+    secret: process.env.APP_SECRET
+  },
+  db: {
+    secure: true,
+    sourceOnly: true,
+    url: process.env.DATABASE_URL,
+    clusterName: process.env.DATABASE_CLUSTER_NAME,
+    key: process.env.DATABASE_KEY,
+    secret: process.env.DATABASE_SECRET
   }
 }
