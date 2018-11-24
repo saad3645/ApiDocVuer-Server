@@ -3,8 +3,6 @@
 const config = require('config')
 const elasticsearch = require('../elasticsearch')
 
-const DOC_ID_REGEX = /^([a-zA-Z0-9_-]+)(?:\.([a-zA-Z0-9_-]+))?$/
-
 module.exports = {
   async get(ctx, next) {
     try {
@@ -24,20 +22,8 @@ module.exports = {
   },
 
   async versions(ctx, next) {
-    const docIdMatch = ctx.params.docId.match(DOC_ID_REGEX)
-    ctx.assert(docIdMatch, 400, 'docId does not match expected pattern', {error: 'bad_request_param'})
-
-    const query = {}
-    if (docIdMatch[2]) {
-      query.app = docIdMatch[1]
-      query.doc = docIdMatch[2]
-    }
-    else {
-      query.doc = docIdMatch[1]
-    }
-
     try {
-      const data = await elasticsearch.searchUri('docversion', query, 'AND', config.db)
+      const data = await elasticsearch.searchUri('doc', {parent: ctx.params.docId}, config.db)
       ctx.body = data.hits
     }
     catch (error) {
@@ -54,20 +40,8 @@ module.exports = {
   },
 
   async branches(ctx, next) {
-    const docIdMatch = ctx.params.docId.match(DOC_ID_REGEX)
-    ctx.assert(docIdMatch, 400, 'docId does not match expected pattern', {error: 'bad_request_param'})
-
-    const query = {version: ctx.params.version}
-    if (docIdMatch[2]) {
-      query.app = docIdMatch[1]
-      query.doc = docIdMatch[2]
-    }
-    else {
-      query.doc = docIdMatch[1]
-    }
-
     try {
-      const data = await elasticsearch.searchUri('docbranch', query, 'AND', config.db)
+      const data = await elasticsearch.searchUri('doc', {parent: (ctx.params.docId + '.' + ctx.params.version)}, config.db)
       ctx.body = data.hits
     }
     catch (error) {

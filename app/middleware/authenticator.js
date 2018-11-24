@@ -48,8 +48,9 @@ const verifyToken = function(token, ctxScope, ctxParams, options) {
 
 module.exports = {
   async login(ctx, next) {
-    ctx.assert(ctx.request.body, 400, 'Request body is empty', {error: 'request_body_empty'})
-    ctx.assert(!Array.isArray(ctx.request.body), 400, 'Request body must be a json object', {error: 'request_body_malformed'})
+    ctx.assert(ctx.request.body, 400, 'Request body is missing', {error: 'request_body_missing'})
+    ctx.assert(typeof ctx.request.body === 'object', 400, 'Request body should be a valid json object', {error: 'request_body_malformed'})
+    ctx.assert(!Array.isArray(ctx.request.body), 400, 'Request body should be a valid json object', {error: 'request_body_malformed'})
 
     const ajv = new Ajv()
     const valid = ajv.validate(LOGIN_SCHEMA, ctx.request.body)

@@ -2,7 +2,7 @@
 
 module.exports = {
   app: {
-    name: 'ApidocVuer',
+    name: 'ApiDocVuer',
     shortName: 'apidocvuer',
     author: 'Saad Ahmed',
     copyright: 'Saad Ahmed',
