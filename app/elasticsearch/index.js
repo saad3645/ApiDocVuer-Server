@@ -37,11 +37,31 @@ const buildQueryUriString = (query, queryType) => {
 }
 
 module.exports = {
+  async create(index, data, id, options) {
+    if (typeof id === 'object' && !options) {
+      options = id
+      id = null
+    }
+    const httpPrefix = options.secure ? 'https://' : 'http://'
+    const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
+    const url = httpPrefix + auth + options.url + '/' + index + '/_doc' + (id ? ('/' + id + '/_create') : '')
+    const res = id ? await axios.put(url, data) : await axios.post(url, data)
+    return res.data
+  },
+
   async get(index, id, options) {
     const httpPrefix = options.secure ? 'https://' : 'http://'
     const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
     const url = httpPrefix + auth + options.url + '/' + index + '/_doc/' + id + (options.sourceOnly ? '/_source' : '')
     const res = await axios.get(url)
+    return res.data
+  },
+
+  async delete(index, id, options) {
+    const httpPrefix = options.secure ? 'https://' : 'http://'
+    const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
+    const url = httpPrefix + auth + options.url + '/' + index + '/_doc/' + id
+    const res = await axios.delete(url)
     return res.data
   },
 
