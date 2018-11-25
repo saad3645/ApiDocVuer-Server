@@ -17,30 +17,30 @@ const generateToken = function(username, acl, options) {
   return jwt.sign({user: username, scope: acl, nonce: nonce}, options.secret, {algorithm: options.algorithm})
 }
 
-const checkScope = function(payloadScope, ctx) {
+const checkScope = function(payloadScope, ctxScope, params) {
   if (typeof payloadScope === 'string') {
     return (payloadScope === 'superuser')
   }
   else if (Array.isArray(payloadScope)) {
-    const ctxScopeMatch = ctx.state.scope.match(SCOPE_REGEX)
+    const ctxScopeMatch = ctxScope.match(SCOPE_REGEX)
     if (ctxScopeMatch) {
       return payloadScope.some(scope => {
         const scopeMatch = scope.match(SCOPE_REGEX)
         // eslint-disable-next-line max-len
-        return (scopeMatch && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[2] === ctxScopeMatch[2] && (!ctxScopeMatch[3] || (scopeMatch[3] && scopeMatch[3] === ctx.params[ctxScopeMatch[3]])) && (!ctxScopeMatch[4] || (scopeMatch[4] && scopeMatch[4] === ctx.params[ctxScopeMatch[4]])))
+        return (scopeMatch && scopeMatch[1] === ctxScopeMatch[1] && scopeMatch[2] === ctxScopeMatch[2] && (!ctxScopeMatch[3] || (scopeMatch[3] && scopeMatch[3] === params[ctxScopeMatch[3]])) && (!ctxScopeMatch[4] || (scopeMatch[4] && scopeMatch[4] === params[ctxScopeMatch[4]])))
       })
     }
     else {
-      return payloadScope.some(scope => (scope === ctx.state.scope))
+      return payloadScope.some(scope => (scope === ctxScope))
     }
   }
 
   return false
 }
 
-const verifyToken = function(token, ctxScope, ctxParams, options) {
+const verifyToken = function(token, ctxScope, params, options) {
   const payload = jwt.verify(token, options.secret, {algorithms: [options.algorithm], maxAge: options.maxAge, clockTolerance: options.clockTolerance})
-  if (!checkScope(payload.scope, ctxScope, ctxParams)) {
+  if (!checkScope(payload.scope, ctxScope, params)) {
     throw new Error('scope_invalid')
   }
   return payload
@@ -75,7 +75,7 @@ module.exports = {
     const passwordValid = bcrypt.compareSync(ctx.request.body.password, q.data.password_hash)
     ctx.assert(passwordValid, 401, 'Invalid username and password', {error: 401, expose: true})
 
-    const token = generateToken(ctx.request.body.username, q.acl, config.auth)
+    const token = generateToken(ctx.request.body.username, q.data.acl, config.auth)
 
     ctx.body = {
       status: 'ok',

@@ -66,13 +66,13 @@ module.exports = {
   },
 
   async searchUri(index, query, queryType, options) {
-    const httpPrefix = options.secure ? 'https://' : 'http://'
-    const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
-
     if (typeof queryType === 'object' && typeof options === 'undefined') {
       options = queryType
       queryType = 'simple'
     }
+
+    const httpPrefix = options.secure ? 'https://' : 'http://'
+    const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
 
     const qs = buildQueryUriString(query, queryType)
 
