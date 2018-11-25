@@ -90,7 +90,7 @@ module.exports = {
   verifyJWT(ctxScope) {
     return async (ctx, next) => {
       // eslint-disable-next-line max-len
-      ctx.assert(ctx.get('Authorization') && ctx.get('Authorization').trim().length === 0, 401, 'Authorization header is missing or empty', {error: 'authorization_missing', expose: true})
+      ctx.assert(ctx.get('Authorization') && ctx.get('Authorization').trim().length > 0, 401, 'Authorization header is missing or empty', {error: 'authorization_missing', expose: true})
 
       const authMatch = ctx.get('Authorization').trim().match(AUTHORIZATION_REGEX)
       // eslint-disable-next-line max-len
