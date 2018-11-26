@@ -5,9 +5,9 @@ require('dotenv').config()
 const config = require('config')
 const bcrypt = require('bcryptjs')
 const supertest = require('supertest')
-const server = require('../app/server')
+const app = require('../app/index')
+const api = supertest(app.callback())
 const elasticsearch = require('../app/elasticsearch')
-const api = supertest(server)
 
 const user = {
   name: 'James Morgan McGill',
@@ -17,22 +17,15 @@ const user = {
   acl: 'superuser'
 }
 
-const testAuth = {
-  username: user.username,
-  password: 'bettercallsaul'
-}
-
-const testToken = {}
-
 beforeAll(async () => {
   try {
-    await elasticsearch.create('user', user, user.username, config.db)
+    await elasticsearch.create('user', user.username, user, config.db)
   }
   catch (error) {
     console.log(error)
-    process.exit(1)
+    process.exit(0)
   }
-})
+}, 10000)
 
 afterAll(async () => {
   try {
@@ -40,12 +33,10 @@ afterAll(async () => {
   }
   catch (error) {
     console.log(error)
-    process.exit(1)
   }
-  server.close()
-})
+}, 10000)
 
-describe('[PUT] /login', function() {
+describe('POST /login', function() {
   describe('Request body is empty', function() {
     test('should return 422 with error message `should have required property \'username\'`', async function() {
       const response = await api.post('/login')
@@ -102,7 +93,7 @@ describe('[PUT] /login', function() {
   })
   describe('Password is incorrect', function() {
     test('should return 401 with error message `Invalid username and password`', async function() {
-      const response = await api.post('/login').send({'username': testAuth.username, 'password': 'password'})
+      const response = await api.post('/login').send({'username': user.username, 'password': 'password'})
       expect(response.status).toEqual(401)
       expect(response.body).toHaveProperty('error')
       expect(response.body.error).toEqual(401)
@@ -111,7 +102,7 @@ describe('[PUT] /login', function() {
   })
   describe('Login user', function() {
     test('should return 200 with (access) token and ttl', async function() {
-      const response = await api.post('/login').send({'username': testAuth.username, 'password': testAuth.password})
+      const response = await api.post('/login').send({'username': user.username, 'password': 'bettercallsaul'})
       expect(response.status).toEqual(200)
       expect(response.body.status).toEqual('ok')
       expect(response.body).toHaveProperty('token')

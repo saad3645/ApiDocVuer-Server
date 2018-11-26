@@ -37,9 +37,10 @@ const buildQueryUriString = (query, queryType) => {
 }
 
 module.exports = {
-  async create(index, data, id, options) {
+  async create(index, id, data, options) {
     if (typeof id === 'object' && !options) {
-      options = id
+      options = data
+      data = id
       id = null
     }
     const httpPrefix = options.secure ? 'https://' : 'http://'
