@@ -3,10 +3,24 @@
 const config = require('config')
 const elasticsearch = require('../elasticsearch')
 
+const buildOpenApi = function(doc) {
+  const paths = doc.operations.reduce((obj, operation) => {
+    if (!obj[operation.path]) {
+      obj[operation.path] = {}
+    }
+    obj[operation.path][operation.method] = Object.assign({}, operation)
+    return obj
+  }, {})
+
+  return Object.assign({}, doc, {paths: paths})
+}
+
 module.exports = {
   async get(ctx, next) {
     try {
-      ctx.body = await elasticsearch.get('doc', ctx.params.id, config.db)
+      const fullId = ctx.params.id + '.' + (ctx.query.version ? ctx.query.version : 'current') + '.' + (ctx.query.branch ? ctx.query.branch : 'master')
+      const res = await elasticsearch.get('openapi', fullId, config.db)
+      ctx.body = buildOpenApi(res)
     }
     catch (error) {
       if (error.response && error.response.status === 404) {
@@ -50,24 +64,6 @@ module.exports = {
       }
       else {
         ctx.throw(503, error, {log: true})
-      }
-    }
-
-    ctx.status = 200
-    await next()
-  },
-
-  async openapi(ctx, next) {
-    try {
-      const id = ctx.params.docId + '.' + ctx.params.version + '.' + (ctx.query.branch ? ctx.query.branch : 'master')
-      ctx.body = await elasticsearch.get('openapi', id, config.db)
-    }
-    catch (error) {
-      if (error.response && error.response.status === 404) {
-        ctx.throw(404)
-      }
-      else {
-        ctx.throw(503, error.message, {log: true})
       }
     }
 

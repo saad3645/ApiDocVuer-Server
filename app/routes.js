@@ -15,7 +15,6 @@ router
   .get('/apps/:id', auth.verifyJWT('read:app:id'), apps.get)
   .get('/docs/:id', auth.verifyJWT('read:doc:id'), docs.get)
   .get('/docs/:docId/versions', auth.verifyJWT('read:docVersions:docId'), docs.versions)
-  .get('/docs/:docId/:version', auth.verifyJWT('read:doc:docId'), docs.openapi)
   .get('/docs/:docId/:version/branches', auth.verifyJWT('read:docBranches:docId'), docs.branches)
 
 module.exports = () => {
