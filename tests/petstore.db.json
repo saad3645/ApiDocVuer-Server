@@ -1,0 +1,275 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Swagger Petstore",
+    "description": "A sample API that uses a petstore as an example to demonstrate features in the OpenAPI 3.0 specification",
+    "version": "2.0.0",
+    "termsOfService": "http://swagger.io/terms/",
+    "contact": {
+      "name": "Swagger API Team",
+      "email": "apiteam@swagger.io",
+      "url": "http://swagger.io"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    },
+    "x-documentId": "petstore.collection",
+    "x-parentId": "petstore",
+    "x-versions": ["1.0.0", "2.0.0"]
+  },
+  "servers": [
+    {
+      "url": "http://petstore.swagger.io/v1",
+      "description": "Production"
+    }
+  ],
+  "operations": [
+    {
+      "summary": "List all pets",
+      "path": "/pets",
+      "method": "get",
+      "operationId": "listPets",
+      "description": "Returns all pets from the system that the user has access to",
+      "tags": ["pets"],
+      "parameters": [
+        {
+          "name": "tags",
+          "in": "query",
+          "description": "Tags to filter by",
+          "required": false,
+          "style": "form",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "description": "Maximum number of items to return at one time (max 100)",
+          "required": false,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "A paged array of pets",
+          "headers": {
+            "x-next": {
+              "description": "A link to the next page of responses",
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "tag": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Client error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "summary": "Create a pet",
+      "path": "/pets",
+      "method": "post",
+      "operationId": "addPet",
+      "description": "Creates a new pet in the store",
+      "tags": ["pets"],
+      "requestBody": {
+        "description": "Pet to add to the store",
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["id", "name"],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Pet created, no response body"
+        },
+        "400": {
+          "description": "Client error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "summary": "Info for a specific pet",
+      "path": "/pets/:id",
+      "method": "get",
+      "operationId": "showPetById",
+      "description": "Returns a pet based on a single ID, if the user does not have access to the pet",
+      "tags": ["pets"],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "The id of the pet to retrieve",
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Pet response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tag": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Client error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "summary": "Delete Pet",
+      "path": "/pets/:id",
+      "method": "delete",
+      "operationId": "deletePet",
+      "description": "Deletes a single pet based on the ID supplied",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "ID of pet to delete",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "responses": {
+        "204": {
+          "description": "Pet deleted"
+        },
+        "400": {
+          "description": "Client error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "pet",
+      "description": "Pet resource",
+      "x-title": "Pet"
+    }
+  ]
+}
