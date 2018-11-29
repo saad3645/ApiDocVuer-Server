@@ -4,11 +4,11 @@ const config = require('config')
 const elasticsearch = require('../elasticsearch')
 
 const buildOpenApi = function(doc) {
-  const paths = doc.operations.reduce((obj, operation) => {
-    if (!obj[operation.path]) {
-      obj[operation.path] = {}
+  const paths = doc['x-endpoints'].reduce((obj, endpoint) => {
+    if (!obj[endpoint.path]) {
+      obj[endpoint.path] = {}
     }
-    obj[operation.path][operation.method] = Object.assign({}, operation)
+    obj[endpoint.path][endpoint.method] = Object.assign({}, endpoint)
     return obj
   }, {})
 

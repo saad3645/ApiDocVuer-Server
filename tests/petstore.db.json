@@ -24,7 +24,7 @@
       "description": "Production"
     }
   ],
-  "operations": [
+  "x-endpoints": [
     {
       "summary": "List all pets",
       "path": "/pets",
