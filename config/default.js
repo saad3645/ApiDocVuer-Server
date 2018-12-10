@@ -26,5 +26,8 @@ module.exports = {
     clusterName: process.env.DATABASE_CLUSTER_NAME,
     key: process.env.DATABASE_KEY,
     secret: process.env.DATABASE_SECRET
+  },
+  users: {
+    registrationCodeLength: 16
   }
 }

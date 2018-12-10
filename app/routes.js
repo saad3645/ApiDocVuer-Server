@@ -4,6 +4,7 @@ const compose = require('koa-compose')
 const Router = require('koa-router')
 const koaBody = require('koa-body')
 const auth = require('./middleware/authenticator')
+const users = require('./controllers/users')
 const apps = require('./controllers/apps')
 const docs = require('./controllers/docs')
 
@@ -11,6 +12,8 @@ const router = new Router()
 
 router
   .post('/login', koaBody(), auth.login)
+  .post('/register', auth.verifyJWT('create:users'), koaBody(), users.create)
+  .post('/activate', koaBody(), users.activatePassword)
   .get('/apps', auth.verifyJWT('read:apps'), apps.list)
   .get('/apps/:id', auth.verifyJWT('read:app:id'), apps.get)
   .get('/docs/:id', auth.verifyJWT('read:doc:id'), docs.get)

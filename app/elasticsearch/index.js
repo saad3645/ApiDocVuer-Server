@@ -58,6 +58,14 @@ module.exports = {
     return res.data
   },
 
+  async update(index, id, data, options) {
+    const httpPrefix = options.secure ? 'https://' : 'http://'
+    const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
+    const url = httpPrefix + auth + options.url + '/' + index + '/_doc/' + id + '/_update'
+    const res = await axios.post(url, {doc: data})
+    return res.data
+  },
+
   async delete(index, id, options) {
     const httpPrefix = options.secure ? 'https://' : 'http://'
     const auth = (options.key ? options.key : '') + (options.secret ? (':' + options.secret) : '') + (options.key || options.secret ? '@' : '')
