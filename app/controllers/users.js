@@ -13,7 +13,7 @@ module.exports = {
   async create(ctx, next) {
     const ajv = new Ajv()
     const valid = ajv.validate(USER_CREATE_SCHEMA, ctx.request.body)
-    ctx.assert(valid, 422, undefined, {errors: ajv.errors})
+    ctx.assert(valid, 422, undefined, {errors: ajv.errors, expose: true})
 
     const code = nanoid(config.users.registrationCodeLength)
     const data = Object.assign({registration_code: code}, ctx.request.body)
@@ -38,14 +38,14 @@ module.exports = {
   async activatePassword(ctx, next) {
     const ajv = new Ajv()
     const valid = ajv.validate(USER_CREATE_PASSWORD_SCHEMA, ctx.request.body)
-    ctx.assert(valid, 422, undefined, {errors: ajv.errors})
+    ctx.assert(valid, 422, undefined, {errors: ajv.errors, expose: true})
     // eslint-disable-next-line
-    ctx.assert(ctx.request.body.username || ctx.request.body.email, 422, undefined, {errors: [{keyword: 'required', params: {missingProperty: ['username', 'email']}, message: 'should have required parameter \'username\' or \'email\''}]})
+    ctx.assert(ctx.request.body.username || ctx.request.body.email, 422, undefined, {errors: [{keyword: 'required', params: {missingProperty: ['username', 'email']}, message: 'should have required parameter \'username\' or \'email\''}], expose: true})
     // eslint-disable-next-line
-    ctx.assert(!ctx.request.body.username || !ctx.request.body.email, 422, undefined, {errors: [{keyword: 'exclusiveRequired', params: {exclusiveProperties: ['username', 'email']}, message: 'should have only one of \'username\' or \'email\''}]})
+    ctx.assert(!ctx.request.body.username || !ctx.request.body.email, 422, undefined, {errors: [{keyword: 'exclusiveRequired', params: {exclusiveProperties: ['username', 'email']}, message: 'should have only one of \'username\' or \'email\''}], expose: true})
 
     const data = {
-      password: bcrypt.hashSync(ctx.request.body.password)
+      password_hash: bcrypt.hashSync(ctx.request.body.password)
     }
 
     let code = null
